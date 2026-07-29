@@ -55,7 +55,7 @@ In the **Environment Variables** section (before first deploy), add:
 
 | Variable | Value | Environment |
 |----------|-------|-------------|
-| `VITE_API_URL` | `https://api-quote.stellarglobalsupplies.com` | Production |
+| `VITE_API_URL` | `` | Production |
 | `VITE_SUPABASE_URL` | `https://your-project.supabase.co` | Production |
 | `VITE_SUPABASE_ANON_KEY` | `eyJhbGci...` | Production |
 
