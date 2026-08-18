@@ -2,50 +2,134 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 const EXCHANGE_FN = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sso-exchange`
-const LANDING_URL = (import.meta.env.VITE_LANDING_URL as string) || 'https://apps.stellarglobalsupplies.com'
-const MAX_AGE_MS  = 5 * 60 * 1000
+const LANDING_URL =
+  (import.meta.env.VITE_LANDING_URL as string) ||
+  'https://apps.stellarglobalsupplies.com'
+
+const MAX_AGE_MS = 5 * 60 * 1000
+
+/**
+ * Validate and normalize a post-login redirect.
+ *
+ * Only same-origin HTTP/HTTPS URLs are allowed.
+ * External URLs, javascript:, data:, protocol-relative URLs,
+ * and malformed URLs fall back to the application root.
+ */
+function getSafeRedirect(value: string | null): string {
+  const fallback = '/'
+
+  if (!value) {
+    return fallback
+  }
+
+  try {
+    const target = new URL(value, window.location.origin)
+
+    // Only allow the exact current application origin.
+    if (target.origin !== window.location.origin) {
+      return fallback
+    }
+
+    // Only allow normal HTTP/HTTPS navigation.
+    if (
+      target.protocol !== 'http:' &&
+      target.protocol !== 'https:'
+    ) {
+      return fallback
+    }
+
+    return target.href
+  } catch {
+    // Invalid or malformed URL.
+    return fallback
+  }
+}
 
 export default function SSOCallback() {
   const [status, setStatus] = useState('Verifying your session…')
-  const [error,  setError]  = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const params   = new URLSearchParams(window.location.search)
-    const token    = params.get('token')
-    const redirect = params.get('redirect') || '/'
-    const ts       = Number(params.get('ts') || 0)
+    const params = new URLSearchParams(window.location.search)
+
+    const token = params.get('token')
+
+    // SECURITY:
+    // Never use the user-controlled redirect parameter directly.
+    const redirectParam = params.get('redirect')
+    const redirect = getSafeRedirect(redirectParam)
+
+    const ts = Number(params.get('ts') || 0)
 
     if (ts && Date.now() - ts > MAX_AGE_MS) {
-      setError('This sign-in link has expired. Please return to the portal.')
+      setError(
+        'This sign-in link has expired. Please return to the portal.'
+      )
       return
     }
 
     if (!token) {
-      const callback = encodeURIComponent(window.location.origin + redirect)
-      window.location.replace(`${LANDING_URL}/login?callback=${callback}`)
+      // redirect has already been validated as same-origin.
+      const callback = encodeURIComponent(redirect)
+
+      window.location.replace(
+        `${LANDING_URL}/login?callback=${callback}`
+      )
+
       return
     }
 
     setStatus('Exchanging credentials…')
 
     fetch(EXCHANGE_FN, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ token }),
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ token }),
     })
       .then(async res => {
         const data = await res.json()
-        if (!res.ok) throw new Error(data.error || `Exchange failed (${res.status})`)
+
+        if (!res.ok) {
+          throw new Error(
+            data.error || `Exchange failed (${res.status})`
+          )
+        }
+
         return data
       })
-      .then(async ({ access_token, refresh_token }: { access_token: string; refresh_token: string }) => {
-        setStatus('Setting up your workspace…')
-        const { error: authErr } = await supabase.auth.setSession({ access_token, refresh_token })
-        if (authErr) throw new Error(authErr.message)
-        window.location.replace(redirect)
-      })
+      .then(
+        async ({
+          access_token,
+          refresh_token,
+        }: {
+          access_token: string
+          refresh_token: string
+        }) => {
+          setStatus('Setting up your workspace…')
+
+          const { error: authErr } =
+            await supabase.auth.setSession({
+              access_token,
+              refresh_token,
+            })
+
+          if (authErr) {
+            throw new Error(authErr.message)
+          }
+
+          // SECURITY:
+          // redirect has already been validated and normalized
+          // to the current application's origin.
+          window.location.replace(redirect)
+        }
+      )
       .catch((err: Error) => {
-        setError(err.message || 'Sign-in failed. Please return to the portal.')
+        setError(
+          err.message ||
+            'Sign-in failed. Please return to the portal.'
+        )
       })
   }, [])
 
@@ -54,14 +138,37 @@ export default function SSOCallback() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-900 via-brand-800 to-dark">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center">
           <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#DC2626"
+              strokeWidth="2"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line
+                x1="12"
+                y1="16"
+                x2="12.01"
+                y2="16"
+              />
             </svg>
           </div>
-          <p className="font-semibold text-gray-800 mb-2">Sign-in error</p>
-          <p className="text-sm text-gray-500 mb-6">{error}</p>
-          <a href={LANDING_URL}
-            className="inline-block px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-lg text-sm transition">
+
+          <p className="font-semibold text-gray-800 mb-2">
+            Sign-in error
+          </p>
+
+          <p className="text-sm text-gray-500 mb-6">
+            {error}
+          </p>
+
+          <a
+            href={LANDING_URL}
+            className="inline-block px-6 py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-semibold rounded-lg text-sm transition"
+          >
             Return to Portal
           </a>
         </div>
@@ -73,9 +180,15 @@ export default function SSOCallback() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-900 via-brand-800 to-dark">
       <div className="text-center space-y-4">
         <div className="w-10 h-10 border-2 border-brand-300 border-t-white rounded-full animate-spin mx-auto" />
+
         <div>
-          <p className="text-white font-semibold">Stellar Global Supplies</p>
-          <p className="text-brand-300 text-sm mt-1">{status}</p>
+          <p className="text-white font-semibold">
+            Stellar Global Supplies
+          </p>
+
+          <p className="text-brand-300 text-sm mt-1">
+            {status}
+          </p>
         </div>
       </div>
     </div>
