@@ -1,25 +1,17 @@
 import { ReactNode } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import { FileText, PlusSquare, LogOut, LayoutDashboard, Upload } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
-import toast from 'react-hot-toast'
 
 const NAV = [
-  { to: '/',               icon: LayoutDashboard, label: 'Dashboard',        end: true  },
-  { to: '/quotes/new',     icon: PlusSquare,      label: 'New Quote',        end: false },
-  { to: '/quotes',         icon: FileText,        label: 'All Quotes',       end: false },
-  { to: '/import',         icon: Upload,          label: 'Import Customers', end: false },
+  { to: '/',           icon: LayoutDashboard, label: 'Dashboard',        end: true  },
+  { to: '/quotes/new', icon: PlusSquare,      label: 'New Quote',        end: false },
+  { to: '/quotes',     icon: FileText,        label: 'All Quotes',       end: false },
+  { to: '/import',     icon: Upload,          label: 'Import Customers', end: false },
 ]
 
 export default function Layout({ children }: { children: ReactNode }) {
   const { user, signOut } = useAuth()
-  const navigate = useNavigate()
-
-  const handleSignOut = async () => {
-    await signOut()
-    navigate('/login')
-    toast.success('Signed out')
-  }
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
@@ -47,8 +39,9 @@ export default function Layout({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="px-3 py-4 border-t border-white/10">
-          <p className="text-xs text-gray-500 px-3 mb-2 truncate">{user?.email}</p>
-          <button onClick={handleSignOut}
+          <p className="text-xs text-gray-500 px-3 mb-2 truncate">{user?.email ?? user?.user_metadata?.name ?? 'User'}</p>
+          {/* ✅ signOut now goes to portal, not /login */}
+          <button onClick={signOut}
             className="flex items-center gap-3 px-3 py-2 w-full rounded-lg text-sm font-medium text-gray-400 hover:text-white hover:bg-white/10 transition-colors">
             <LogOut size={16} />
             Sign out
