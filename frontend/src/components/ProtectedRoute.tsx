@@ -1,11 +1,21 @@
-import { Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import Layout from '@/components/Layout'
+
+const LANDING_URL = (import.meta.env.VITE_LANDING_URL as string) || 'https://apps.stellarglobalsupplies.com'
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth()
 
-  if (loading) {
+  useEffect(() => {
+    if (!loading && !session) {
+      // No session — redirect to portal with this page as callback
+      const callback = encodeURIComponent(window.location.href)
+      window.location.replace(`${LANDING_URL}/login?callback=${callback}`)
+    }
+  }, [loading, session])
+
+  if (loading || !session) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center gap-3">
@@ -15,8 +25,6 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
       </div>
     )
   }
-
-  if (!session) return <Navigate to="/login" replace />
 
   return <Layout>{children}</Layout>
 }
