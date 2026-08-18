@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from '@/hooks/useAuth'
 import ProtectedRoute from '@/components/ProtectedRoute'
+import SSOCallback from '@/components/SSOCallback'
 import Login from '@/pages/Login'
 import Dashboard from '@/pages/Dashboard'
 import QuoteEditor from '@/pages/QuoteEditor'
@@ -13,12 +14,18 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          {/* SSO entry point — landing page redirects here after login */}
+          <Route path="/sso-callback" element={<SSOCallback />} />
+
+          {/* /login now redirects to portal instead of showing a form */}
           <Route path="/login" element={<Login />} />
-          <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/quotes" element={<ProtectedRoute><QuotesList /></ProtectedRoute>} />
+
+          {/* Protected routes — redirect to portal if no session */}
+          <Route path="/"        element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/quotes"  element={<ProtectedRoute><QuotesList /></ProtectedRoute>} />
           <Route path="/quotes/new" element={<ProtectedRoute><QuoteEditor /></ProtectedRoute>} />
           <Route path="/quotes/:id" element={<ProtectedRoute><QuoteEditor /></ProtectedRoute>} />
-          <Route path="/import" element={<ProtectedRoute><ImportCustomers /></ProtectedRoute>} />
+          <Route path="/import"  element={<ProtectedRoute><ImportCustomers /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
       <Toaster
